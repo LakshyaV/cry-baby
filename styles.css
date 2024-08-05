@@ -1,0 +1,57 @@
+/* General Styles */
+body {
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    background-color: #ffffff; /* Very light yellow */
+    color: #333;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+/* Button */
+button {
+    background-color: #ffcccb; /* Light pink */
+    border: none;
+    color: #fff;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    font-size: 4em;
+    line-height: 120px; /* Center text vertically */
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    position: relative;
+}
+
+button:hover {
+    background-color: #ff6f61; /* Baby pink */
+    transform: scale(1.05);
+}
+
+/* Countdown Timer */
+#countdown {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Container for button */
+.container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Frequency Waves */
+#waveform {
+    margin-top: 23px;
+    height: 120px;
+    width: 50%;
+    background-color: #ffffff; /* Light blue */
+    border-radius: 10px;
+    border: 1px solid #ffffff;
+}

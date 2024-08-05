@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Recorder</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <button id="recordButton" onclick="toggleRecording()">Record</button>
+        <canvas id="waveform"></canvas>
+    </div>
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let canvas = document.getElementById('waveform');
+        let ctx = canvas.getContext('2d');
+        let analyser;
+        let isRecording = false;
+        let animationFrameId;
+        let recordingTimeout;
+
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        async function startRecording() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Your browser does not support audio recording.");
+                return;
+            }
+
+            let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+
+            mediaRecorder.ondataavailable = function(event) {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async function() {
+                let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                let formData = new FormData();
+                formData.append('file', audioBlob, 'recording.wav');
+
+                await fetch('/upload-audio/', {
+                    method: 'POST',
+                    body: formData
+                }).then(response => response.json())
+                  .then(data => console.log('File uploaded:', data.filename));
+
+                // Notify server that recording has finished and handle the response
+                await notifyRecordingFinished();
+                
+                // Reset button state
+                document.getElementById('recordButton').textContent = 'Record';
+                document.getElementById('recordButton').classList.remove('recording');
+                isRecording = false;
+
+                // Stop frequency visualization
+                cancelAnimationFrame(animationFrameId);
+                clearTimeout(recordingTimeout);
+                clearCanvas();
+            };
+
+            document.getElementById('recordButton').textContent = 'Recording';
+            document.getElementById('recordButton').classList.add('recording');
+            isRecording = true;
+            mediaRecorder.start();
+
+            drawFrequency();
+
+            // Stop recording after 5 seconds
+            recordingTimeout = setTimeout(() => {
+                stopRecording();
+            }, 5000);
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+
+        async function notifyRecordingFinished() {
+            console.log('Sending recording finished notification...');
+            const response = await fetch('/recording-finished/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: 'Recording finished!' })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Recording finished notification sent.', data);
+                alert(`Reason of Cry: ${data.predicted_label}`);
+            } else {
+                console.error('Failed to send recording finished notification.');
+            }
+        }
+
+        function drawFrequency() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            canvas.width = width;
+            canvas.height = height;
+
+            function draw() {
+                animationFrameId = requestAnimationFrame(draw);
+                
+                analyser.getByteFrequencyData(dataArray);
+
+                ctx.fillStyle = '#ffffff'; // Light blue background
+                ctx.fillRect(0, 0, width, height);
+
+                const barWidth = (width / bufferLength) * 2.5;
+                let barHeight;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    barHeight = dataArray[i];
+                    ctx.fillStyle = '#0288d1'; // Darker blue for the bars
+                    ctx.fillRect(x, height - barHeight / 2, barWidth, barHeight / 2);
+                    x += barWidth + 1;
+                }
+            }
+
+            draw();
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>
